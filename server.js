@@ -51,7 +51,7 @@ const weatherData = require('./data/darksky.json');
 app.get('/location', (req, res) => {
   try {
     const location = new Location(req.query.location, geoData);
-    res.send(JSON.stringify(location));
+    res.send(location);
   } catch (error) {
     res.status(500).send({status: 500, responseText: error.message});
   }
@@ -60,7 +60,7 @@ app.get('/location', (req, res) => {
 app.get('/weather', (req, res) => {
   try {
     const weather = new Weather(weatherData);
-    res.send(JSON.stringify(weather.weather));
+    res.send(weather.weather);
   } catch (error) {
     res.status(500).send({status: 500, responseText: error.message});
   }
