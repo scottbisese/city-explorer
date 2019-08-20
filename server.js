@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const superagent = require('superagent');
 require('dotenv').config();
 const app = express();
 app.use(cors());
@@ -16,7 +17,6 @@ app.use(cors());
   },
   ...
 ]
-
 */
 
 class Weather {
@@ -37,9 +37,9 @@ class Location {
 
   constructor(query, json) {
     this.search_query = query;
-    this.formatted_query = json.results[0].formatted_address;
-    this.latitude = json.results[0].geometry.location.lat;
-    this.longitude = json.results[0].geometry.location.lng;
+    this.formatted_query = json.formatted_address;
+    this.latitude = json.geometry.location.lat;
+    this.longitude = json.geometry.location.lng;
   }
 }
 
@@ -48,8 +48,11 @@ const weatherData = require('./data/darksky.json');
 
 app.get('/location', (req, res) => {
   try {
-    const location = new Location(req.query.location, geoData);
-    res.send(location);
+    const query = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data.replace(' ', '+')}&key=${process.env.GEOCODE_API_KEY}`;
+    superagent.get(query).then(responseData => {
+      const location = new Location(req.query.data, responseData.body.results[0]);
+      res.send(location);
+    });
   } catch (error) {
     res.status(500).send({status: 500, responseText: error.message});
   }
