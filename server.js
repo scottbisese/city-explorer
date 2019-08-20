@@ -4,9 +4,36 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 
-const getErrorMessage = function (error) {
-  return `<style>*{text-align:center;background-color:#222222;color:#AFAFAF}h1{font-size:500%;}p{font-size:300%;}</style><h1>Woops, dude!</h1><p>${error.message}, you've really goofed this time!</p>`;
-};
+/*
+[
+  {
+    "forecast": "Partly cloudy until afternoon.",
+    "time": "Mon Jan 01 2001"
+  },
+  {
+    "forecast": "Mostly cloudy in the morning.",
+    "time": "Tue Jan 02 2001"
+  },
+  ...
+]
+
+*/
+
+class Weather {
+  constructor(json) {
+    let weathers = [];
+    for (const day of json['daily']['data']) {
+      const date = new Date(day.time * 1000);
+      weathers.push({
+        'forecast': day.summary,
+        'time': date.toString().slice(0, 15),
+      });
+    }
+    this.weather = weathers;
+  }
+}
+
+console.log('Hello?');
 
 class Location {
 
@@ -19,22 +46,24 @@ class Location {
 }
 
 const geoData = require('./data/geo.json');
+const weatherData = require('./data/darksky.json');
 
 app.get('/location', (req, res) => {
   try {
     const location = new Location(req.query.location, geoData);
-    res.send(JSON.stringify(location));
+    res.send(location);
   } catch (error) {
-    res.status(500).send(getErrorMessage(error));
+    res.status(500).send({status: 500, responseText: error.message});
   }
 });
 
 app.get('/weather', (req, res) => {
-  res.send(req.path + JSON.stringify(req.query['place']));
-});
-
-app.get(/.*/, (req, res) => {
-  res.status(404).send('Woops, you\'ve taken a wrong turn!');
+  try {
+    const weather = new Weather(weatherData);
+    res.send(weather.weather);
+  } catch (error) {
+    res.status(500).send({status: 500, responseText: error.message});
+  }
 });
 
 const PORT = process.env.PORT || 3000;
