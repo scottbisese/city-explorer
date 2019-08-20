@@ -1,6 +1,12 @@
 const express = require('express');
+const cors = require('cors');
 require('dotenv').config();
 const app = express();
+app.use(cors());
+
+const getErrorMessage = function (error) {
+  return `<style>*{text-align:center;background-color:#222222;color:#AFAFAF}h1{font-size:500%;}p{font-size:300%;}</style><h1>Woops, dude!</h1><p>${error.message}, you've really goofed this time!</p>`;
+};
 
 class Location {
 
@@ -19,7 +25,7 @@ app.get('/location', (req, res) => {
     const location = new Location(req.query.location, geoData);
     res.send(JSON.stringify(location));
   } catch (error) {
-    res.status(500).send(`<style>*{text-align:center;background-color:#222222;color:#AFAFAF}h1{font-size:500%;}p{font-size:300%;}</style><h1>Woops, dude!</h1><p>${error.message}, you've really goofed this time!</p>`);
+    res.status(500).send(getErrorMessage(error));
   }
 });
 
