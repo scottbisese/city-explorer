@@ -33,8 +33,6 @@ class Weather {
   }
 }
 
-console.log('Hello?');
-
 class Location {
 
   constructor(query, json) {
@@ -64,6 +62,10 @@ app.get('/weather', (req, res) => {
   } catch (error) {
     res.status(500).send({status: 500, responseText: error.message});
   }
+});
+
+app.get(/.*/, (req, res) => {
+  res.status(404).send({status: 404, responseText: 'This item could not be found..'});
 });
 
 const PORT = process.env.PORT || 3000;
