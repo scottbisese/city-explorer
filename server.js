@@ -78,7 +78,9 @@ app.get('/weather', (request, response) => {
   const query = 'SELECT * FROM weather WHERE latitude=$1 AND longitude=$2;';
   const values = [request.query.data.latitude, request.query.data.longitude];
   client.query(query, values).then(results => {
-    if (results.rowCount.length === 0) {
+    console.log(results.rowCount);
+    if (results.rows.length === 0) {
+      console.log('Here');
       superagent
         .get(`https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`)
         .then((weatherData) => {
@@ -89,6 +91,8 @@ app.get('/weather', (request, response) => {
           response.send(weather);
         })
         .catch((error) => handleError(error, response));
+    } else {
+      console.log('Nope');
     }
   }).catch(error => console.log(error));
 }
