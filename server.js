@@ -1,78 +1,93 @@
+'use strict';
+
 const express = require('express');
 const cors = require('cors');
-const superagent = require('superagent');
 require('dotenv').config();
+const superagent = require('superagent');
+const pg = require('pg');
+
+const client = new pg.Client(process.env.DB_ADDRESS);
+client.connect();
+
 const app = express();
 app.use(cors());
 
-/*
-[
-  {
-    "forecast": "Partly cloudy until afternoon.",
-    "time": "Mon Jan 01 2001"
-  },
-  {
-    "forecast": "Mostly cloudy in the morning.",
-    "time": "Tue Jan 02 2001"
-  },
-  ...
-]
-*/
+function convertTime(timeInMilliseconds) {
+  return new Date(timeInMilliseconds).toString().split(' ').slice(0, 4).join(' ');
+}
 
-class Weather {
-  constructor(json) {
-    let weathers = [];
-    for (const day of json['daily']['data']) {
-      const date = new Date(day.time * 1000);
-      weathers.push({
-        'forecast': day.summary,
-        'time': date.toString().slice(0, 15),
-      });
+function Location(query, formatted, lat, long) {
+  this.search_query = query;
+  this.formatted_query = formatted;
+  this.latitude = lat;
+  this.longitude = long;
+}
+
+function Weather(weatherData) {
+  this.forecast = weatherData.summary;
+  this.time = convertTime(weatherData.time * 1000);
+}
+
+function Event(eventData) {
+  this.link = eventData.url;
+  this.name = eventData.name.text;
+  this.event_date = eventData.url;
+  this.summary = eventData.description.text;
+}
+
+function handleError(error, response) {
+  response.status(error.status || 500).send(error.message);
+}
+
+app.get('/location', (request, response) => {
+  const query = 'SELECT * FROM locations WHERE search_query=$1;';
+  const values = [request.query.data];
+
+  client.query(query, values).then(results => {
+    if (results.rows.length === 0) {
+      superagent
+        .get(`https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`)
+        .then((locationData) => {
+          const location = new Location(request.query.data, locationData.body.results[0].formatted_query, locationData.body.results[0].geometry.location.lat, locationData.body.results[0].geometry.location.lng);
+          const query = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
+          const values = Object.values(location);
+          client.query(query, values).catch((...args) => console.log(args));
+          response.send(location);
+        })
+        .catch((error) => handleError(error, response));
+    } else {
+      console.log(results.rows[0]);
+      response.send(new Location(request.query.data, results.rows[0].formatted_query, results.rows[0].latitude, results.rows[0].longitude));
     }
-    this.weather = weathers;
-  }
-}
-
-class Location {
-
-  constructor(query, json) {
-    this.search_query = query;
-    this.formatted_query = json.formatted_address;
-    this.latitude = json.geometry.location.lat;
-    this.longitude = json.geometry.location.lng;
-  }
-}
-
-const geoData = require('./data/geo.json');
-const weatherData = require('./data/darksky.json');
-
-app.get('/location', (req, res) => {
-  try {
-    const query = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data.replace(' ', '+')}&key=${process.env.GEOCODE_API_KEY}`;
-    superagent.get(query).then(responseData => {
-      const location = new Location(req.query.data, responseData.body.results[0]);
-      res.send(location);
-    });
-  } catch (error) {
-    res.status(500).send({status: 500, responseText: error.message});
-  }
+  }).catch(error => console.log(error));
 });
 
-app.get('/weather', (req, res) => {
-  try {
-    const weather = new Weather(weatherData);
-    res.send(weather.weather);
-  } catch (error) {
-    res.status(500).send({status: 500, responseText: error.message});
-  }
+app.get('/events', (request, response) => {
+  superagent
+    .get(`https://www.eventbriteapi.com/v3/events/search/?token=${process.env.EVENTBRITE_API_KEY}&location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&location.within=10km`)
+    .then((eventData) => {
+      const sliceIndex = eventData.body.events.length > 20 ? 20 : eventData.body.events.length;
+      const events = eventData.body.events.slice(0, sliceIndex).map((event) => new Event(event));
+      response.send(events);
+    })
+    .catch((error) => handleError(error, response));
+});
+
+app.get('/weather', (request, response) => {
+  superagent
+    .get(`https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`)
+    .then((weatherData) => {
+      const weather = weatherData.body.daily.data.map((day) => new Weather(day));
+      response.send(weather);
+    })
+    .catch((error) => handleError(error, response));
 });
 
 app.get(/.*/, (req, res) => {
-  res.status(404).send({status: 404, responseText: 'This item could not be found..'});
+  res.status(404).send({ status: 404, responseText: 'This item could not be found..' });
 });
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log('Server has started...');
+  console.log('I know that you came to party baby, baby, baby, baby');
 });
