@@ -6,7 +6,7 @@ require('dotenv').config();
 const superagent = require('superagent');
 const pg = require('pg');
 
-const client = new pg.Client(process.env.DB_ADDRESS);
+const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 
 const app = express();
@@ -55,29 +55,28 @@ app.get('/location', (request, response) => {
 
   queryData(query, values,
     () => handleNewLocationData(request.query.data, response),
-    (results) => handleTerryFold (results, request.query.data, response),
+    (results) => handleTerryFold(results, request.query.data, response),
     (error) => handleError(error, response)
   );
 
- //MuTHER F\/<KING REFACTORED MUTHER B!TCH3S!! 
+  //MuTHER F\/<KING REFACTORED MUTHER B!TCH3S!! 
 });
 
-function handleTerryFold (results, searchTerm, response) {
+function handleTerryFold(results, searchTerm, response) {
   const location = new Location(searchTerm, results.rows[0].formatted_query, results.rows[0].latitude, results.rows[0].longitude);
-      response.send(location);
+  response.send(location);
 }
 
-function handleNewLocationData (searchTerm, response) {
+function handleNewLocationData(searchTerm, response) {
   superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${searchTerm}&key=${process.env.GEOCODE_API_KEY}`)
-  .then((locationData) => {
-    console.log(locationData);
-    const location = new Location(searchTerm, locationData.body.results[0].formatted_address, locationData.body.results[0].geometry.location.lat, locationData.body.results[0].geometry.location.lng);
-    const query = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
-    const values = Object.values(location);
-    client.query(query, values).catch((...args) => console.log(args));
-    response.send(location);
-  })
-  .catch((error) => handleError(error, response));
+    .then((locationData) => {
+      const location = new Location(searchTerm, locationData.body.results[0].formatted_address, locationData.body.results[0].geometry.location.lat, locationData.body.results[0].geometry.location.lng);
+      const query = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
+      const values = Object.values(location);
+      client.query(query, values).catch((...args) => console.log(args));
+      response.send(location);
+    })
+    .catch((error) => handleError(error, response));
 }
 
 
@@ -113,7 +112,6 @@ function handleNewWeatherData(latitude, longitude, response) {
   superagent
     .get(`https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${latitude},${longitude}`)
     .then((weatherData) => {
-      console.log('New weather data');
       const weather = weatherData.body.daily.data.map((day) => new Weather(day));
       const query = 'INSERT INTO weather (forecast, time, latitude, longitude) VALUES ($1, $2, $3, $4)';
       weather.forEach(day => {
