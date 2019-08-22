@@ -53,24 +53,33 @@ app.get('/location', (request, response) => {
   const query = 'SELECT * FROM locations WHERE search_query=$1;';
   const values = [request.query.data];
 
-  client.query(query, values).then(results => {
-    if (results.rows.length === 0) {
-      superagent
-        .get(`https://maps.googleapis.com/maps/api/geocode/json?address=${request.query.data}&key=${process.env.GEOCODE_API_KEY}`)
-        .then((locationData) => {
-          const location = new Location(request.query.data, locationData.body.results[0].formatted_address, locationData.body.results[0].geometry.location.lat, locationData.body.results[0].geometry.location.lng);
-          const query = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
-          const values = Object.values(location);
-          client.query(query, values).catch((...args) => console.log(args));
-          response.send(location);
-        })
-        .catch((error) => handleError(error, response));
-    } else {
-      const location = new Location(request.query.data, results.rows[0].formatted_query, results.rows[0].latitude, results.rows[0].longitude);
-      response.send(location);
-    }
-  }).catch(error => console.log(error));
+  queryData(query, values,
+    () => handleNewLocationData(request.query.data, response),
+    (results) => handleTerryFold (results, request.query.data, response),
+    (error) => handleError(error, response)
+  );
+
+ //MuTHER F\/<KING REFACTORED MUTHER B!TCH3S!! 
 });
+
+function handleTerryFold (results, searchTerm, response) {
+  const location = new Location(searchTerm, results.rows[0].formatted_query, results.rows[0].latitude, results.rows[0].longitude);
+      response.send(location);
+}
+
+function handleNewLocationData (searchTerm, response) {
+  superagent.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${searchTerm}&key=${process.env.GEOCODE_API_KEY}`)
+  .then((locationData) => {
+    console.log(locationData);
+    const location = new Location(searchTerm, locationData.body.results[0].formatted_address, locationData.body.results[0].geometry.location.lat, locationData.body.results[0].geometry.location.lng);
+    const query = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
+    const values = Object.values(location);
+    client.query(query, values).catch((...args) => console.log(args));
+    response.send(location);
+  })
+  .catch((error) => handleError(error, response));
+}
+
 
 app.get('/events', (request, response) => {
   const query = 'SELECT * FROM events WHERE latitude=$1 AND longitude=$2;';
@@ -85,7 +94,6 @@ app.get('/events', (request, response) => {
 app.get('/weather', (request, response) => {
   const query = 'SELECT * FROM weather WHERE latitude=$1 AND longitude=$2;';
   const values = [request.query.data.latitude, request.query.data.longitude];
-  console.log(`Lat: ${values[0]}, Long: ${values[1]}`);
   queryData(query, values,
     () => handleNewWeatherData(request.query.data.latitude, request.query.data.longitude, response),
     (results) => handleOldWeatherData(results, response),
