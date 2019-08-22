@@ -86,8 +86,10 @@ app.get('/weather', (request, response) => {
         .then((weatherData) => {
           const weather = weatherData.body.daily.data.map((day) => new Weather(day));
           const query = 'INSERT INTO weather (forecast, time, latitude, longitude) VALUES ($1, $2, $3, $4)';
-          const values = [weather.forecast, weather.time, request.query.data.latitude, request.query.data.longitude];
-          client.query(query, values).catch((...args) => console.log(args));
+          weather.forEach(day => {
+            const values = [day.forecast, day.time, request.query.data.latitude, request.query.data.longitude];
+            client.query(query, values).catch((...args) => console.log(args));
+            });
           response.send(weather);
         })
         .catch((error) => handleError(error, response));
