@@ -63,6 +63,7 @@ app.get('/location', (request, response) => {
 });
 
 app.get('/events', (request, response) => {
+
   superagent
     .get(`https://www.eventbriteapi.com/v3/events/search/?token=${process.env.EVENTBRITE_API_KEY}&location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&location.within=10km`)
     .then((eventData) => {
@@ -74,20 +75,30 @@ app.get('/events', (request, response) => {
 });
 
 app.get('/weather', (request, response) => {
-  superagent
-    .get(`https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`)
-    .then((weatherData) => {
-      const weather = weatherData.body.daily.data.map((day) => new Weather(day));
-      response.send(weather);
-    })
-    .catch((error) => handleError(error, response));
-});
+  const query = 'SELECT * FROM weather WHERE latitude=$1 AND longitude=$2;';
+  const values = [request.query.data.latitude, request.query.data.longitude];
+  client.query(query, values).then(results => {
+    if (results.rowCount.length === 0) {
+      superagent
+        .get(`https://api.darksky.net/forecast/${process.env.DARKSKY_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`)
+        .then((weatherData) => {
+          const weather = weatherData.body.daily.data.map((day) => new Weather(day));
+          const query = 'INSERT INTO weather (forecast, time, latitude, longitude) VALUES ($1, $2, $3, $4)';
+          const values = [weather.forecast, weather.time, request.query.data.latitude, request.query.data.longitude];
+          client.query(query, values).catch((...args) => console.log(args));
+          response.send(weather);
+        })
+        .catch((error) => handleError(error, response));
+    }
+  }).catch(error => console.log(error));
+}
+);
 
-app.get(/.*/, (req, res) => {
-  res.status(404).send({ status: 404, responseText: 'This item could not be found..' });
-});
+  app.get(/.*/, (req, res) => {
+    res.status(404).send({ status: 404, responseText: 'This item could not be found..' });
+  });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('I know that you came to party baby, baby, baby, baby');
-});
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log('I know that you came to party baby, baby, baby, baby');
+  });
