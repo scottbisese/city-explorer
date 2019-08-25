@@ -23,6 +23,7 @@
 ## Credits and Collaborations
 Calvin - https://github.com/Clownvin
 Steven - https://github.com/ColoSRJones
+Scott - https://github.com/scottbisese
 
 
 Number and name of feature: 3. Weather
